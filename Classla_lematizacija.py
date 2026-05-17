@@ -23,7 +23,6 @@ def preveri_poved(poved, ciljna_beseda):
             if beseda.lemma:
                 osnovna_oblika = beseda.lemma.lower()
                 osnovne_oblike.append(osnovna_oblika)
-
     if ciljna_beseda.lower() in osnovne_oblike:
         return True
     else:
@@ -34,10 +33,12 @@ def preveri_poved(poved, ciljna_beseda):
 
 seznam_povedi = list(wsi_podatki["Poved"])
 seznam_besed = list(wsi_podatki["Beseda"])
+st_vrstic = len(wsi_podatki)
 vrstice_z_napakami = []
 for i in range(len(wsi_podatki)):
     trenutni_stavek = seznam_povedi[i]
     iskana_beseda = seznam_besed[i]
+    print(f"Obdelujem vrstico {i + 1}/{st_vrstic}")
     uspesno_zaznano = preveri_poved(trenutni_stavek, iskana_beseda)
     if not uspesno_zaznano:
         trenutna_vrstica = wsi_podatki.iloc[i]
