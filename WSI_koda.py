@@ -73,7 +73,7 @@ def izberi_razlicen_pomen(podatki, beseda, trenutni_i):
     return random.choice(izbran_pomen["povedi"])
 
 
-def pripravi_podatke(podatki, st_parov_na_pomen=2):
+def pripravi_ucne_pare(podatki, st_parov_na_pomen=2):
     x_povedi = []  # Seznam parov povedi (npr. "Poved 1 </s> Poved 2")
     y_oznake = []  # Seznam oznak: 1 (isti pomen), 0 (različen pomen)
     for beseda, pomeni in tqdm(podatki.items()):
@@ -111,7 +111,7 @@ def pripravi_podatke(podatki, st_parov_na_pomen=2):
 
 # 3. UČNA (80%) in TESTNA (20%) MNOŽICA
 
-x_povedi, y_oznake = pripravi_podatke(sskj_slovar)
+x_povedi, y_oznake = pripravi_ucne_pare(sskj_slovar)
 x_train, x_test, y_train, y_test = train_test_split(x_povedi, y_oznake, train_size=0.8, shuffle=True, random_state=42)
 oznaka = {'additional_special_tokens': ['<target>', '</target>']}
 tokenizer.add_special_tokens(oznaka)
