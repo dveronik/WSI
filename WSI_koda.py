@@ -59,7 +59,7 @@ for beseda in vmesni_slovar:
 
 ##############################################################################
 
-naprava = torch.device("cpu")
+naprava = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = r'D:\DigiLing\MAGISTRSKA\Koda\sloberta.2.0.transformers'
 tokenizer = CamembertTokenizer.from_pretrained(model, use_fast=False)
 
@@ -114,17 +114,104 @@ def pripravi_ucne_pare(podatki, st_parov_na_pomen=2):
 
 x_povedi, y_oznake = pripravi_ucne_pare(sskj_slovar)
 x_train, x_test, y_train, y_test = train_test_split(x_povedi, y_oznake, train_size=0.8, shuffle=True, random_state=42)
-oznaka = {'additional_special_tokens': ['<target>', '</target>']}
-tokenizer.add_special_tokens(oznaka)
+dodatna_oznaka = {'additional_special_tokens': ['<target>', '</target>']}
+tokenizer.add_special_tokens(dodatna_oznaka)
 max_st_besed = 128
 
 def tokenizacija(sez_povedi, tokenizator, max_dolzina):
     return tokenizator(sez_povedi, padding='max_length', truncation=True,  max_length=max_dolzina,  return_tensors="pt")
 
-train_encodings = tokenizacija(x_train, tokenizer, max_st_besed)
-test_encodings = tokenizacija(x_test, tokenizer, max_st_besed)
+ucne_povedi = tokenizacija(x_train, tokenizer, max_st_besed)
+testne_povedi = tokenizacija(x_test, tokenizer, max_st_besed)
 
-train_labels = torch.tensor(y_train)
-test_labels = torch.tensor(y_test)
+ucne_oznake = torch.tensor(y_train)
+testne_oznake = torch.tensor(y_test)
 
 ##############################################################################
+
+# Učenje modela
+
+batch_size = 16
+
+train_dataset = TensorDataset(ucne_povedi['input_ids'], ucne_povedi['attention_mask'], ucne_oznake)
+train_dataloader = DataLoader(train_dataset, batch_size= batch_size, shuffle=True)
+
+model_wsi = CamembertForSequenceClassification.from_pretrained(model, num_labels=2)
+model_wsi.resize_token_embeddings(len(tokenizer))
+model_wsi.to(naprava)
+
+no_decay = ['bias', 'LayerNorm.weight']
+optimizer_grouped_parameters = [
+    {'params': [p for n, p in model_wsi.named_parameters() if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
+    {'params': [p for n, p in model_wsi.named_parameters() if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+]
+optimizer = optim.AdamW(optimizer_grouped_parameters, lr=1e-5)
+
+epochs = 1
+running_loss = 0
+global_step = 0
+model_wsi.train()
+for epoch in range(epochs):
+    for batch in tqdm(train_dataloader, desc="Učenje modela"):
+        global_step += 1
+        b_input_ids = batch[0].to(naprava)
+        b_input_mask = batch[1].to(naprava)
+        b_labels = batch[2].to(naprava).type(torch.LongTensor).to(naprava)
+
+        optimizer.zero_grad()
+        outputs = model_wsi(input_ids=b_input_ids, attention_mask=b_input_mask, labels=b_labels)
+        loss = outputs.loss
+        loss.backward()
+        running_loss += loss.item()
+        optimizer.step()
+
+        if global_step % 30 == 0:
+            print(f"\nKorak {global_step} | Trenutna povprečna izguba (Loss): {running_loss / 30:.4f}", file=sys.stderr)
+            running_loss = 0
+            torch.save(model_wsi.state_dict(), './trained_model.ckpt')
+
+        del loss
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.ipc_collect()
+
+    torch.save(model_wsi.state_dict(), './trained_model.ckpt')
+    print("\nUčenje modela uspešno zaključeno! Uteži so shranjene v './trained_model.ckpt'.")
+
+##############################################################################
+
+# Evalvacija modela
+
+test_dataset = TensorDataset(testne_povedi['input_ids'], testne_povedi['attention_mask'], testne_oznake)
+test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+print("\nZačenjam z evalvacijo na testni množici...")
+model_wsi.eval()  # Preklop modela v način ocenjevanja (uteži se zaklenejo)
+
+correct = 0
+incorrect = 0
+
+with torch.no_grad():  # Izklop gradientov za hitrejši izračun
+    for batch in tqdm(test_dataloader, desc="Testiranje modela"):
+        b_input_ids = batch[0].to(naprava)
+        b_input_mask = batch[1].to(naprava)
+        b_labels = batch[2].to(naprava)
+
+        outputs = model_wsi(input_ids=b_input_ids, attention_mask=b_input_mask)
+        logits = outputs.logits
+        preds = torch.argmax(logits, dim=1)
+
+        for pred, true_label in zip(preds, b_labels):
+            if pred == true_label:
+                correct += 1
+            else:
+                incorrect += 1
+
+classification_accuracy = correct / (correct + incorrect)
+
+print("\n" + "#" * 50)
+print(f" Evalvacija:")
+print(f"Število pravilnih napovedi: {correct}")
+print(f"Število napačnih napovedi: {incorrect}")
+print(f"Končna točnost modela (CA): {classification_accuracy * 100:.2f} %")
+print("#" * 50)
