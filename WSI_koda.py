@@ -186,12 +186,12 @@ test_dataset = TensorDataset(testne_povedi['input_ids'], testne_povedi['attentio
 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
 print("\nZačenjam z evalvacijo na testni množici...")
-model_wsi.eval()  # Preklop modela v način ocenjevanja (uteži se zaklenejo)
+model_wsi.eval()
 
 correct = 0
 incorrect = 0
 
-with torch.no_grad():  # Izklop gradientov za hitrejši izračun
+with torch.no_grad():
     for batch in tqdm(test_dataloader, desc="Testiranje modela"):
         b_input_ids = batch[0].to(naprava)
         b_input_mask = batch[1].to(naprava)
@@ -213,5 +213,5 @@ print("\n" + "#" * 50)
 print(f" Evalvacija:")
 print(f"Število pravilnih napovedi: {correct}")
 print(f"Število napačnih napovedi: {incorrect}")
-print(f"Končna točnost modela (CA): {classification_accuracy * 100:.2f} %")
+print(f"CA: {classification_accuracy * 100:.2f} %")
 print("#" * 50)
