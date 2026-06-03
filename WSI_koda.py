@@ -13,7 +13,7 @@ import gc
 
 ##############################################################################
 
-podatki = pd.read_csv("testni_dataset.csv", sep=";", encoding="utf-8-sig")
+podatki = pd.read_csv("WSI_podatkovna_mnozica.csv", sep=";", encoding="utf-8-sig")
 lematizator = classla.Pipeline('sl', processors='tokenize,pos,lemma')
 
 # Postopek označevanja ciljne besede v povedih
