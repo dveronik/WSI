@@ -10,7 +10,7 @@ import pandas as pd
 naprava = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model = "" #pot do natreniranega modela
 max_st_besed = 128
-podatki_elexis = "elexis-wsd-sl_sense-inventory.tsv"
+podatki_elexis = "elexis-wsd-sl_corpus.tsv"
 
 ##############################################################################
 
@@ -111,7 +111,7 @@ WSI_mnozica = pd.read_csv("WSI_podatkovna_mnozica.csv", sep=";", encoding="utf-8
 ciljne_besede = set(WSI_mnozica['Beseda'].astype(str).str.lower().str.strip().tolist())
 print(f" WSI podatkovna množica vsebuje {len(ciljne_besede)} unikatnih besed.")
 
-celoten_elexis_slovar = preberi_elexis("elexis-wsd-sl_sense-inventory.tsv")
+celoten_elexis_slovar = preberi_elexis("elexis-wsd-sl_corpus.tsv")
 koncni_elexis_slovar = {}
 for lema, pomeni in celoten_elexis_slovar.items():
     if lema.lower().strip() in ciljne_besede:
@@ -133,43 +133,39 @@ for lema, pomeni_leme in tqdm(koncni_elexis_slovar.items()):
     vsi_pomeni_idx = list(pomeni_leme.keys())
 
     for pravi_pomen_id, testne_povedi in pomeni_leme.items():
+        pari = []
+        id_pomenov = []
         for testna_poved in testne_povedi:
-            pari = []
-            id_pomenov = []
-
             # Sestavimo primerjalne WiC pare z vsemi pomeni te besede znotraj Elexisa
             for primerjalni_pomen_id, primerjalne_povedi in pomeni_leme.items():
                 for primerjalna_poved in primerjalne_povedi:
                     pari.append(f"{testna_poved} </s> {primerjalna_poved}")
                     id_pomenov.append(primerjalni_pomen_id)
-
             if len(pari) > 60:
                 pari = pari[:60]
                 id_pomenov = id_pomenov[:60]
 
-            izpust_pomena = False
-            if random.random() < 0.5:
-                izpust_pomena = True
-                idx_za_izbris = [indeks for indeks, identifikator in enumerate(id_pomenov) if
-                                 identifikator == pravi_pomen_id]
-                pari = [pari[x] for x in range(len(pari)) if x not in idx_za_izbris]
+        izpust_pomena = False
+        if random.random() < 0.5:
+            izpust_pomena = True
+            pari = [par for par, primerjalni_pomen_id in zip(pari, id_pomenov) if primerjalni_pomen_id != pravi_pomen_id]
 
-            if not pari:
-                continue
+        if not pari:
+            continue
 
-            # Tokenizacija in prenos vhodnih podatkov na grafično kartico/procesor
-            test_encodings = tokenizator(pari, padding='max_length', truncation=True, max_length=max_st_besed,
-                                         return_tensors="pt").to(naprava)
+        # Tokenizacija in prenos vhodnih podatkov na grafično kartico/procesor
+        test_encodings = tokenizator(pari, padding='max_length', truncation=True, max_length=max_st_besed,
+                                     return_tensors="pt").to(naprava)
 
-            with torch.no_grad():
-                izvodi = model_wsi(**test_encodings)
-                verjetnosti_istega = izvodi.logits[:, 1].cpu().numpy()
-                najvisja_napoved = np.max(verjetnosti_istega)
+        with torch.no_grad():
+            izvodi = model_wsi(**test_encodings)
+            verjetnosti_istega = izvodi.logits[:, 1].cpu().numpy()
+            najvisja_napoved = np.max(verjetnosti_istega)
 
-            if izpust_pomena:
-                odstranjeni_pomeni.append(najvisja_napoved)
-            else:
-                ohranjeni_pomeni.append(najvisja_napoved)
+        if izpust_pomena:
+            odstranjeni_pomeni.append(najvisja_napoved)
+        else:
+            ohranjeni_pomeni.append(najvisja_napoved)
 
 
 empiricna_meja = 2.976  # Meja gotovosti prevzeta iz profesorjevega poskusa
