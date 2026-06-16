@@ -39,10 +39,10 @@ def oznaci_besedo_in_preveri_poved(poved, ciljna_beseda, pipeline=lematizator):
 
 
 def pripravi_slovar():
-    shranjen_json = "sskj_slovar.json"
-    if os.path.exists(shranjen_json):
+    sskj_json = "sskj_slovar.json"
+    if os.path.exists(sskj_json):
         print("Nalagam slovar iz JSON predpomnilnika")
-        with open(shranjen_json, "r", encoding="utf-8") as f:
+        with open(sskj_json, "r", encoding="utf-8") as f:
             return json.load(f)
 
     vmesni_slovar = {}
@@ -80,7 +80,7 @@ def pripravi_slovar():
         sskj_slovar[beseda] = pomeni
 
     print("Shranjujem slovar v JSON predpomnilnik")
-    with open(shranjen_json, "w", encoding="utf-8") as f:
+    with open(sskj_json, "w", encoding="utf-8") as f:
         json.dump(sskj_slovar, f, indent=4, ensure_ascii=False)
     return sskj_slovar
 
@@ -112,11 +112,11 @@ def izberi_razlicen_pomen(celoten_slovar, beseda, trenutni_i):
     izbran_pomen_povedi = random.choice(kandidati)
     return random.choice(izbran_pomen_povedi)
 
-def pripravi_ucne_pare(podatki_podmnozice, celoten_slovar, max_primerov_na_pomen=6, max_parov_na_pomen=100):
+def pripravi_ucne_pare(podmnozica, celoten_slovar, max_primerov_na_pomen=6, max_parov_na_pomen=100):
     x_povedi = []
     y_oznake = []
 
-    for beseda in tqdm(podatki_podmnozice, desc="Generiranje parov"):
+    for beseda in tqdm(podmnozica, desc="Generiranje parov"):
         pomeni = celoten_slovar[beseda]
         for i, pomen in enumerate(pomeni):
             povedi_trenutni_pomen = pomen["povedi"][:max_primerov_na_pomen]
